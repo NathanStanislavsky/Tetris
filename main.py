@@ -46,11 +46,11 @@ class Block:
                 self.last_fall_time = time.time()
             else:
                 self.lock_block()
-                self.y = 0
+                self.y = -len(self.block_shape)
                 self.x = board_width // 2
-                self.block = random.randint(1, 7)
                 self.color = self.get_color()
-                self.block_shape = self.create_block()
+
+
 
     def check_collision(self, x, y, block_shape=None):
         if block_shape is None:
@@ -74,15 +74,11 @@ class Block:
                 if self.block_shape[r][c] == 1:
                     board[self.y + r][self.x + c] = self.block
 
+
+
     def rotate_block_clockwise(self):
         rotated_block = list(zip(*reversed(self.block_shape)))
-        if self.check_collision(self.x, self.y, rotated_block):
-            # Clear previous block shape from the board
-            for r in range(len(self.block_shape)):
-                for c in range(len(self.block_shape[r])):
-                    if self.block_shape[r][c] == 1:
-                        board[self.y + r][self.x + c] = 0
-            self.block_shape = rotated_block
+        self.block_shape = rotated_block
 
 # Initialize Pygame
 pygame.init()
@@ -138,12 +134,15 @@ while running:
     # Update the position of the current block
     current_block.update_position()
 
-    # Create and draw the current block
     block_shape = current_block.block_shape
     for r in range(len(block_shape)):
         for c in range(len(block_shape[r])):
             if block_shape[r][c] == 1:
-                pygame.draw.rect(screen, current_block.color, ((current_block.x + c) * cell_size, (current_block.y + r) * cell_size, cell_size, cell_size))
+                block_x = current_block.x + c
+                block_y = current_block.y + r
+                pygame.draw.rect(screen, current_block.color, (block_x * cell_size, block_y * cell_size, cell_size, cell_size))
+
+                
 
     # Update the board with locked blocks
     for r in range(board_height):
@@ -151,8 +150,14 @@ while running:
             if board[r][c] != 0:
                 pygame.draw.rect(screen, current_block.get_color(), (c * cell_size, r * cell_size, cell_size, cell_size))
 
+    # Check if the current block is locked
+    if not current_block.check_collision(current_block.x, current_block.y + 1):
+        current_block.lock_block()
+        current_block = Block()  # Create a new block
+
     # Update the display
     pygame.display.flip()
 
 # Quit the game
 pygame.quit()
+
