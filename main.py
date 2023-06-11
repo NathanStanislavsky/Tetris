@@ -2,12 +2,15 @@ import pygame
 import random
 import time
 
+score = 0
+
 class Block:
     def __init__(self):
         self.block = random.randint(1, 7)
         self.color = self.get_color()
         self.x = board_width // 2
         self.y = 0
+        self.fall_speed = 1.0
         self.last_fall_time = time.time()
         self.block_shape = self.create_block()
 
@@ -38,26 +41,107 @@ class Block:
             return [[1, 1, 1], [1, 0, 0]]
         elif self.block == 7:
             return [[1, 1, 1], [0, 0, 1]]
-
-    def update_position(self):
-        if time.time() - self.last_fall_time > 1:  # 1 second delay for each move
+        
+    def fall(self):
+        if time.time() - self.last_fall_time >= self.fall_speed:
             if self.check_collision(self.x, self.y + 1):
                 self.y += 1
-                self.last_fall_time = time.time()
             else:
-                self.lock_block()
-                self.y = -len(self.block_shape)
-                self.x = board_width // 2
-                self.color = self.get_color()
+                self.freeze()  # The block cannot fall further, freeze it on the board
+                self.clear_lines()  # Check if any lines are complete and clear them if necessary
+                self.spawn_new_block()  # Spawn a new block
+            self.last_fall_time = time.time()
+
+    def freeze(self):
+        # Update the board with the current block's shape and color
+        for r in range(len(self.block_shape)):
+            for c in range(len(self.block_shape[r])):
+                if self.block_shape[r][c] == 1:
+                    board[self.y + r][self.x + c] = self.color
+
+    def clear_lines(self):
+        global score
+        line_count = 0
+        lines_to_clear = []
+        for r in range(board_height):
+            if all(board[r]):
+                lines_to_clear.append(r)
+
+        for line in lines_to_clear:
+            line_count += 1
+
+        if line_count == 1:
+            score += 40
+        elif line_count == 2:
+            score += 100
+        elif line_count == 3:
+            score += 300
+        elif line_count == 4:
+            score += 800
+        else:
+            score += 0
+
+        # Clear the complete lines
+        for line in lines_to_clear:
+            del board[line]
+            board.insert(0, [0 for _ in range(board_width)])
 
 
+    def spawn_new_block(self):
+        # Create a new block
+        self.block = random.randint(1, 7)
+        self.color = self.get_color()
+        self.x = board_width // 2
+        self.y = 0
+        self.block_shape = self.create_block()
+        self.last_fall_time = time.time()
 
-    def check_collision(self, x, y, block_shape=None):
-        if block_shape is None:
-            block_shape = self.create_block()
-        for r in range(len(block_shape)):
-            for c in range(len(block_shape[r])):
-                if block_shape[r][c] == 1:
+    def move(self, direction):
+        global score
+        # left
+        if direction == 1 and self.check_collision(self.x - 1, self.y):
+            self.x -= 1
+
+        # right
+        if direction == 2 and self.check_collision(self.x + 1, self.y):
+            self.x += 1
+        
+        # down
+        if direction == 3 and self.check_collision(self.x, self.y + 1):
+            score += 1 # points awarded per cell dropped
+            self.y += 1
+            
+        # rotate clockwise
+        if direction == 4:
+            # Transpose the block shape matrix
+            transposed_shape = [[self.block_shape[j][i] for j in range(len(self.block_shape))] for i in range(len(self.block_shape[0]))]
+            # Reverse each row of the transposed matrix to achieve clockwise rotation
+            rotated_shape = [row[::-1] for row in transposed_shape]
+            # Check collision for the rotated shape
+            if self.check_collision(self.x, self.y, rotated_shape):
+                # Update the block shape
+                self.block_shape = rotated_shape
+                # Adjust the position if the rotated block goes out of bounds
+                if self.x + len(self.block_shape[0]) > board_width:
+                    self.x = board_width - len(self.block_shape[0])
+                if self.y + len(self.block_shape) > board_height:
+                    self.y = board_height - len(self.block_shape)
+
+        
+        if direction == 5:
+            while self.check_collision(self.x, self.y + 1):
+                score += 5 # points awarded per cell dropped
+                self.y += 1
+            self.freeze()
+            self.clear_lines()
+            self.spawn_new_block()
+
+    def check_collision(self, x, y, shape=None):
+        if shape is None:
+            shape = self.block_shape
+        for r in range(len(shape)):
+            for c in range(len(shape[r])):
+                if shape[r][c] == 1:
                     if (
                         x + c < 0
                         or x + c >= board_width
@@ -67,18 +151,6 @@ class Block:
                     ):
                         return False
         return True
-
-    def lock_block(self):
-        for r in range(len(self.block_shape)):
-            for c in range(len(self.block_shape[r])):
-                if self.block_shape[r][c] == 1:
-                    board[self.y + r][self.x + c] = self.block
-
-
-
-    def rotate_block_clockwise(self):
-        rotated_block = list(zip(*reversed(self.block_shape)))
-        self.block_shape = rotated_block
 
 # Initialize Pygame
 pygame.init()
@@ -105,6 +177,12 @@ current_block = Block()
 
 # Game loop
 running = True
+move_left = False
+move_right = False
+move_down = False
+last_move_time = time.time()
+move_delay = 0.1  # Adjust this value to control the movement speed
+
 while running:
     # Event handling
     for event in pygame.event.get():
@@ -112,16 +190,35 @@ while running:
             running = False
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_LEFT:
-                if current_block.check_collision(current_block.x - 1, current_block.y):
-                    current_block.x -= 1
+                move_left = True
             elif event.key == pygame.K_RIGHT:
-                if current_block.check_collision(current_block.x + 1, current_block.y):
-                    current_block.x += 1
+                move_right = True
             elif event.key == pygame.K_DOWN:
-                if current_block.check_collision(current_block.x, current_block.y + 1):
-                    current_block.y += 1
+                move_down = True
             elif event.key == pygame.K_UP:
-                current_block.rotate_block_clockwise()
+                current_block.move(4)
+            elif event.key == pygame.K_v:  
+                current_block.move(5)  # Trigger hard drop
+        elif event.type == pygame.KEYUP:
+            if event.key == pygame.K_LEFT:
+                move_left = False
+            elif event.key == pygame.K_RIGHT:
+                move_right = False
+            elif event.key == pygame.K_DOWN:
+                move_down = False
+    
+    # Movement logic
+    if move_left and time.time() - last_move_time >= move_delay:
+        current_block.move(1)
+        last_move_time = time.time()
+    if move_right and time.time() - last_move_time >= move_delay:
+        current_block.move(2)
+        last_move_time = time.time()
+    if move_down and time.time() - last_move_time >= move_delay:
+        current_block.move(3)
+        last_move_time = time.time()
+
+    current_block.fall()
 
     # Clear the screen
     screen.fill(BLACK)
@@ -130,33 +227,26 @@ while running:
     for r in range(board_height):
         for c in range(board_width):
             pygame.draw.rect(screen, WHITE, (c * cell_size, r * cell_size, cell_size, cell_size))
+            if board[r][c] != 0:
+                pygame.draw.rect(screen, board[r][c], (c * cell_size, r * cell_size, cell_size, cell_size))
 
-    # Update the position of the current block
-    current_block.update_position()
-
+    # Create and draw the current block
     block_shape = current_block.block_shape
     for r in range(len(block_shape)):
         for c in range(len(block_shape[r])):
             if block_shape[r][c] == 1:
                 block_x = current_block.x + c
                 block_y = current_block.y + r
+
                 pygame.draw.rect(screen, current_block.color, (block_x * cell_size, block_y * cell_size, cell_size, cell_size))
 
-                
-
-    # Update the board with locked blocks
-    for r in range(board_height):
-        for c in range(board_width):
-            if board[r][c] != 0:
-                pygame.draw.rect(screen, current_block.get_color(), (c * cell_size, r * cell_size, cell_size, cell_size))
-
-    # Check if the current block is locked
-    if not current_block.check_collision(current_block.x, current_block.y + 1):
-        current_block.lock_block()
-        current_block = Block()  # Create a new block
+    # Render and display the score
+    score_text = pygame.font.Font(None, 36).render("Score: " + str(score), True, WHITE)
+    screen.blit(score_text, (350, 20))
 
     # Update the display
     pygame.display.flip()
+
 
 # Quit the game
 pygame.quit()
