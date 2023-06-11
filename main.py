@@ -88,13 +88,10 @@ class Block:
 
 
     def spawn_new_block(self):
-        # Create a new block
-        self.block = random.randint(1, 7)
-        self.color = self.get_color()
-        self.x = board_width // 2
-        self.y = 0
-        self.block_shape = self.create_block()
-        self.last_fall_time = time.time()
+        global current_block
+        global next_block
+        current_block = next_block
+        next_block = Block()
 
     def move(self, direction):
         global score
@@ -162,6 +159,14 @@ cell_size = 30
 board_width = 10
 board_height = 20
 
+preview_width = 6  # Adjust the width of the preview section
+preview_height = 4  # Adjust the height of the preview section
+
+# Calculate the dimensions and position of the preview section
+preview_x = board_width + 2
+preview_y = 4
+preview_cell_size = 30
+
 screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption("Tetris")
 
@@ -172,8 +177,12 @@ BLACK = (0, 0, 0)
 # Initialize the board
 board = [[0 for _ in range(board_width)] for _ in range(board_height)]
 
+# Initialize preview section
+preview_section = [[0 for _ in range(preview_width)] for _ in range(preview_height)]
+
 # Create a block
 current_block = Block()
+next_block = Block()
 
 # Game loop
 running = True
@@ -197,7 +206,7 @@ while running:
                 move_down = True
             elif event.key == pygame.K_UP:
                 current_block.move(4)
-            elif event.key == pygame.K_v:  
+            elif event.key == pygame.K_SPACE:  
                 current_block.move(5)  # Trigger hard drop
         elif event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT:
@@ -243,6 +252,19 @@ while running:
     # Render and display the score
     score_text = pygame.font.Font(None, 36).render("Score: " + str(score), True, WHITE)
     screen.blit(score_text, (350, 20))
+
+    # Display next block
+    preview_text = pygame.font.Font(None, 24).render("Next Block:", True, WHITE)
+    screen.blit(preview_text, (350, 70))
+
+    next_block_shape = next_block.block_shape
+    for r in range(len(next_block_shape)):
+        for c in range(len(next_block_shape[r])):
+            if next_block_shape[r][c] == 1:
+                block_x = preview_x + c
+                block_y = preview_y + r
+
+                pygame.draw.rect(screen, next_block.color, (block_x * preview_cell_size, block_y * preview_cell_size, preview_cell_size, preview_cell_size))
 
     # Update the display
     pygame.display.flip()
