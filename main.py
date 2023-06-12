@@ -167,6 +167,10 @@ preview_x = board_width + 2
 preview_y = 4
 preview_cell_size = 30
 
+# Calculate the dimensions and position of the preview section
+hold_x = board_width + 2
+hold_y = 8
+
 screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption("Tetris")
 
@@ -183,6 +187,7 @@ preview_section = [[0 for _ in range(preview_width)] for _ in range(preview_heig
 # Create a block
 current_block = Block()
 next_block = Block()
+hold_block = None
 
 # Game loop
 running = True
@@ -205,9 +210,21 @@ while running:
             elif event.key == pygame.K_DOWN:
                 move_down = True
             elif event.key == pygame.K_UP:
-                current_block.move(4)
+                current_block.move(4) # rotate
             elif event.key == pygame.K_SPACE:  
                 current_block.move(5)  # Trigger hard drop
+            elif event.key == pygame.K_c:
+                if hold_block != None:
+                    temp = hold_block
+                    hold_block = current_block
+                    current_block = temp
+
+                    current_block.x = hold_block.x
+                    current_block.y = hold_block.y
+                else:
+                    hold_block = current_block
+                    current_block = next_block
+                    next_block = Block()
         elif event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT:
                 move_left = False
@@ -266,9 +283,21 @@ while running:
 
                 pygame.draw.rect(screen, next_block.color, (block_x * preview_cell_size, block_y * preview_cell_size, preview_cell_size, preview_cell_size))
 
+    # Display next block
+    hold_text = pygame.font.Font(None, 24).render("Hold:", True, WHITE)
+    screen.blit(hold_text, (350, 200))
+    if hold_block != None:
+        hold_block_shape = hold_block.block_shape
+        for r in range(len(hold_block_shape)):
+            for c in range(len(hold_block_shape[r])):
+                if hold_block_shape[r][c] == 1:
+                    block_x = hold_x + c
+                    block_y = hold_y + r
+
+                    pygame.draw.rect(screen, hold_block.color, (block_x * preview_cell_size, block_y * preview_cell_size, preview_cell_size, preview_cell_size))
+
     # Update the display
     pygame.display.flip()
-
 
 # Quit the game
 pygame.quit()
