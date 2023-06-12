@@ -61,6 +61,9 @@ class Block:
                 if self.block_shape[r][c] == 1:
                     board[self.y + r][self.x + c] = self.color
 
+        if self.y <= 0:
+            pygame.QUIT()
+
     def clear_lines(self):
         global score
         global total_lines_cleared
@@ -97,6 +100,10 @@ class Block:
         global next_block
         current_block = next_block
         next_block = Block()
+
+        # Check if the initial position of the new block is clear
+        if not current_block.check_collision(current_block.x, current_block.y):
+            pygame.quit()
 
     def move(self, direction):
         global score
@@ -158,8 +165,8 @@ class Block:
 pygame.init()
 
 # Set up the display
-screen_width = 800
-screen_height = 800
+screen_width = 700
+screen_height = 600
 cell_size = 30
 board_width = 10
 board_height = 20
