@@ -3,14 +3,16 @@ import random
 import time
 
 score = 0
+current_level = 1
+total_lines_cleared = 0
 
 class Block:
     def __init__(self):
         self.block = random.randint(1, 7)
         self.color = self.get_color()
         self.x = board_width // 2
-        self.y = 0
-        self.fall_speed = 1.0
+        self.y = 1
+        self.fall_speed = 1.0 - (current_level * .05)
         self.last_fall_time = time.time()
         self.block_shape = self.create_block()
 
@@ -61,6 +63,7 @@ class Block:
 
     def clear_lines(self):
         global score
+        global total_lines_cleared
         line_count = 0
         lines_to_clear = []
         for r in range(board_height):
@@ -80,6 +83,8 @@ class Block:
             score += 800
         else:
             score += 0
+
+        total_lines_cleared += line_count
 
         # Clear the complete lines
         for line in lines_to_clear:
@@ -154,7 +159,7 @@ pygame.init()
 
 # Set up the display
 screen_width = 800
-screen_height = 600
+screen_height = 800
 cell_size = 30
 board_width = 10
 board_height = 20
@@ -246,6 +251,11 @@ while running:
 
     current_block.fall()
 
+    current_level = (total_lines_cleared // 10) + 1
+
+    if current_block.y <= 0:
+        running = False
+
     # Clear the screen
     screen.fill(BLACK)
 
@@ -270,6 +280,10 @@ while running:
     score_text = pygame.font.Font(None, 36).render("Score: " + str(score), True, WHITE)
     screen.blit(score_text, (350, 20))
 
+    # Display level
+    level = pygame.font.Font(None, 36).render("Level: " + str(current_level), True, WHITE)
+    screen.blit(level, (550, 20))
+
     # Display next block
     preview_text = pygame.font.Font(None, 24).render("Next Block:", True, WHITE)
     screen.blit(preview_text, (350, 70))
@@ -283,7 +297,7 @@ while running:
 
                 pygame.draw.rect(screen, next_block.color, (block_x * preview_cell_size, block_y * preview_cell_size, preview_cell_size, preview_cell_size))
 
-    # Display next block
+    # Display hold block
     hold_text = pygame.font.Font(None, 24).render("Hold:", True, WHITE)
     screen.blit(hold_text, (350, 200))
     if hold_block != None:
